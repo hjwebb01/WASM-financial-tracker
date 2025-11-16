@@ -3,50 +3,54 @@ import { useTransactions } from "../context/TransactionsContext";
 import { useBudgets } from "../context/BudgetsContext";
 import { getCurrentMonthStart, getCurrentMonthEnd } from "../utils/finance";
 
-export function useMonthlyAggregates() {
+export type TimelineFilter = "month" | "all";
+
+export function useMonthlyAggregates(timeline: TimelineFilter = "month") {
   const { transactions } = useTransactions();
   const { budgets } = useBudgets();
 
   const monthStart = useMemo(() => getCurrentMonthStart(), []);
   const monthEnd = useMemo(() => getCurrentMonthEnd(), []);
 
-  const currentMonthTxs = useMemo(
+  const filteredTransactions = useMemo(
     () =>
-      transactions.filter((tx) => {
-        const date = new Date(tx.date);
-        return date >= monthStart && date <= monthEnd;
-      }),
-    [transactions, monthStart, monthEnd]
+      timeline === "all"
+        ? transactions
+        : transactions.filter((tx) => {
+            const date = new Date(tx.date);
+            return date >= monthStart && date <= monthEnd;
+          }),
+    [transactions, timeline, monthStart, monthEnd]
   );
 
   const totalSpent = useMemo(
     () =>
-      currentMonthTxs
+      filteredTransactions
         .filter((tx) => tx.amountCents < 0)
         .reduce((sum, tx) => sum + tx.amountCents, 0),
-    [currentMonthTxs]
+    [filteredTransactions]
   );
 
   const totalIncome = useMemo(
     () =>
-      currentMonthTxs
+      filteredTransactions
         .filter((tx) => tx.amountCents > 0)
         .reduce((sum, tx) => sum + tx.amountCents, 0),
-    [currentMonthTxs]
+    [filteredTransactions]
   );
 
   const netBalance = totalIncome + totalSpent; // spent is negative
 
   const categorySpendMap = useMemo(() => {
     const map = new Map<string, number>();
-    currentMonthTxs.forEach((tx) => {
+    filteredTransactions.forEach((tx) => {
       if (tx.amountCents < 0) {
         const current = map.get(tx.categoryId) || 0;
         map.set(tx.categoryId, current + Math.abs(tx.amountCents));
       }
     });
     return map;
-  }, [currentMonthTxs]);
+  }, [filteredTransactions]);
 
   const topCategory = useMemo(() => {
     let maxSpent = 0;
