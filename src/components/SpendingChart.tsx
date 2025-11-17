@@ -32,13 +32,13 @@ export function SpendingChart({ timeView }: SpendingChartProps) {
   const xKey = timeView === 'month' ? 'day' : 'month';
 
   return (
-    <div className="card">
-      <div className="p-6 space-y-4">
+    <div className="chart-card">
+      <div className="chart-header">
         <div>
-          <h3 className="text-white">Spending Trends</h3>
-          <p className="text-gray-400">Income vs. Expenses over time</p>
+          <h3 className="chart-title">Spending Trends</h3>
+          <p className="chart-subtitle">Income vs. Expenses over time</p>
         </div>
-        <div className="h-[300px]">
+        <div className="chart-container">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
