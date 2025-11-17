@@ -1,60 +1,112 @@
-import "./App.css";
-import { NavLink, Routes, Route, Navigate } from "react-router-dom";
-import DashboardPage from "./pages/DashboardPage";
-import TransactionsPage from "./pages/TransactionsPage";
-import BudgetsPage from "./pages/BudgetsPage";
+import { useState } from 'react';
+import './App.css';
+import { FinanceOverview } from './components/FinanceOverview';
+import { SpendingChart } from './components/SpendingChart';
+import { CategoryBreakdown } from './components/CategoryBreakdown';
+import { RecentTransactions } from './components/RecentTransactions';
+import { MonthlyComparison } from './components/MonthlyComparison';
 
 function App() {
+  const [timeView, setTimeView] = useState<'month' | 'all'>('month');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'budgets'>('dashboard');
+
+  const tabs = [
+    { id: 'dashboard' as const, label: 'Dashboard' },
+    { id: 'transactions' as const, label: 'Transactions' },
+    { id: 'budgets' as const, label: 'Budgets' },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#1a1a1a] text-white">
-      <header className="border-b border-gray-800">
-        <div className="container mx-auto px-4 py-6">
-          <h1 className="text-center mb-6 text-3xl font-bold">BudgetWise</h1>
+    <div className="app-container">
+      {/* Header */}
+      <header className="app-header">
+        <div className="app-header-content">
+          <h1 className="app-title">BudgetWise</h1>
           
-          <nav className="w-full max-w-md mx-auto">
-            <div className="grid w-full grid-cols-3 bg-white/10 backdrop-blur-sm rounded-lg p-1">
-              <NavLink 
-                to="/dashboard" 
-                className={({ isActive }) => 
-                  `text-blue-600 py-2 px-3 rounded-md text-center font-medium transition-all ${
-                    isActive ? 'bg-white shadow-md' : 'hover:bg-white/20'
-                  }`
-                }
-              >
-                Dashboard
-              </NavLink>
-              <NavLink 
-                to="/transactions" 
-                className={({ isActive }) => 
-                  `text-blue-600 py-2 px-3 rounded-md text-center font-medium transition-all ${
-                    isActive ? 'bg-white shadow-md' : 'hover:bg-white/20'
-                  }`
-                }
-              >
-                Transactions
-              </NavLink>
-              <NavLink 
-                to="/budgets" 
-                className={({ isActive }) => 
-                  `text-blue-600 py-2 px-3 rounded-md text-center font-medium transition-all ${
-                    isActive ? 'bg-white shadow-md' : 'hover:bg-white/20'
-                  }`
-                }
-              >
-                Budgets
-              </NavLink>
+          <nav className="tabs-container">
+            <div className="tabs-list">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`tabs-trigger ${activeTab === tab.id ? 'tabs-trigger-active' : ''}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </nav>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/transactions" element={<TransactionsPage />} />
-          <Route path="/budgets" element={<BudgetsPage />} />
-        </Routes>
+      {/* Main Content */}
+      <main className="app-main">
+        <div className="content-wrapper">
+          {activeTab === 'dashboard' && (
+            <>
+              {/* Title and Description */}
+              <div className="dashboard-header">
+                <h2 className="dashboard-title">Dashboard</h2>
+                <p className="dashboard-subtitle">Lifetime view of your finances.</p>
+              </div>
+
+              {/* Time Toggle */}
+              <div className="time-toggle">
+                <button
+                  onClick={() => setTimeView('month')}
+                  className={`time-toggle-btn ${timeView === 'month' ? 'active' : 'inactive'}`}
+                >
+                  This Month
+                </button>
+                <button
+                  onClick={() => setTimeView('all')}
+                  className={`time-toggle-btn ${timeView === 'all' ? 'active' : 'inactive'}`}
+                >
+                  All Time
+                </button>
+              </div>
+
+              {/* Finance Overview Cards */}
+              <FinanceOverview timeView={timeView} />
+
+              {/* Charts Grid */}
+              <div className="charts-grid">
+                <SpendingChart timeView={timeView} />
+                <CategoryBreakdown timeView={timeView} />
+              </div>
+
+              {/* Monthly Comparison */}
+              <MonthlyComparison />
+
+              {/* Recent Transactions */}
+              <RecentTransactions />
+            </>
+          )}
+
+          {activeTab === 'transactions' && (
+            <div className="content-section">
+              <div className="dashboard-header">
+                <h2 className="dashboard-title">Transactions</h2>
+                <p className="dashboard-subtitle">View and manage all your transactions.</p>
+              </div>
+              <div className="chart-card">
+                <p className="text-gray-400">Transactions page content coming soon...</p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'budgets' && (
+            <div className="content-section">
+              <div className="dashboard-header">
+                <h2 className="dashboard-title">Budgets</h2>
+                <p className="dashboard-subtitle">Set and track your spending budgets.</p>
+              </div>
+              <div className="chart-card">
+                <p className="text-gray-400">Budgets page content coming soon...</p>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );

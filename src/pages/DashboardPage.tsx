@@ -11,28 +11,24 @@ function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 py-8">
-      <div className="text-center space-y-2">
-        <h2 className="text-gray-300">Dashboard</h2>
-        <p className="text-gray-400">Lifetime view of your finances.</p>
+      <div className="dashboard-header">
+        <h2 className="dashboard-title">Dashboard</h2>
+        <p className="dashboard-subtitle">Lifetime view of your finances.</p>
       </div>
 
-      <div className="flex justify-center gap-2">
+      <div className="time-toggle">
         <button
           onClick={() => setTimeView("month")}
-          className={`px-6 py-2 rounded-md transition-colors ${
-            timeView === "month"
-              ? "bg-gray-700 text-white"
-              : "bg-transparent text-gray-400 hover:text-gray-300"
+          className={`time-toggle-btn ${
+            timeView === "month" ? "active" : "inactive"
           }`}
         >
           This Month
         </button>
         <button
           onClick={() => setTimeView("all")}
-          className={`px-6 py-2 rounded-md transition-colors ${
-            timeView === "all"
-              ? "bg-gray-700 text-white"
-              : "bg-transparent text-gray-400 hover:text-gray-300"
+          className={`time-toggle-btn ${
+            timeView === "all" ? "active" : "inactive"
           }`}
         >
           All Time
