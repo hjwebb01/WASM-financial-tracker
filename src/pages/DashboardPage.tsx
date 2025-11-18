@@ -10,41 +10,48 @@ function DashboardPage() {
   const [timeView, setTimeView] = useState<TimelineFilter>("month");
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 px-4 py-8">
-      <div className="dashboard-header">
-        <h2 className="dashboard-title">Dashboard</h2>
-        <p className="dashboard-subtitle">Lifetime view of your finances.</p>
-      </div>
+    <div className="app-container">
+      {/* Main Content */}
+      <main className="app-main">
+        <div className="content-wrapper">
+            {/* Title and Description */}
+              <div className="dashboard-header">
+                <h2 className="dashboard-title">Dashboard</h2>
+                <p className="dashboard-subtitle">Lifetime view of your finances.</p>
+              </div>
 
-      <div className="time-toggle">
-        <button
-          onClick={() => setTimeView("month")}
-          className={`time-toggle-btn ${
-            timeView === "month" ? "active" : "inactive"
-          }`}
-        >
-          This Month
-        </button>
-        <button
-          onClick={() => setTimeView("all")}
-          className={`time-toggle-btn ${
-            timeView === "all" ? "active" : "inactive"
-          }`}
-        >
-          All Time
-        </button>
-      </div>
+              {/* Time Toggle */}
+              <div className="time-toggle">
+                <button
+                  onClick={() => setTimeView('month')}
+                  className={`time-toggle-btn ${timeView === 'month' ? 'active' : 'inactive'}`}
+                >
+                  This Month
+                </button>
+                <button
+                  onClick={() => setTimeView('all')}
+                  className={`time-toggle-btn ${timeView === 'all' ? 'active' : 'inactive'}`}
+                >
+                  All Time
+                </button>
+              </div>
 
-      <FinanceOverview timeView={timeView} />
+              {/* Finance Overview Cards */}
+              <FinanceOverview timeView={timeView} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SpendingChart timeView={timeView} />
-        <CategoryBreakdown timeView={timeView} />
-      </div>
+              {/* Charts Grid */}
+              <div className="charts-grid">
+                <SpendingChart timeView={timeView} />
+                <CategoryBreakdown timeView={timeView} />
+              </div>
 
-      <MonthlyComparison />
+              {/* Monthly Comparison */}
+              <MonthlyComparison />
 
-      <RecentTransactions />
+              {/* Recent Transactions */}
+              <RecentTransactions />
+        </div>
+      </main>
     </div>
   );
 }
