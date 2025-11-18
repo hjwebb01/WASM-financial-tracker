@@ -24,14 +24,15 @@
 
 .tabs-container {
   width: 100%;
-  max-width: 28rem;
+  max-width: 30rem;
   margin: 0 auto;
+  
 }
 
 .tabs-list {
   display: grid;
-  width: 100%;
   grid-template-columns: repeat(3, 1fr);
+  column-gap: 0.5rem;
   background-color: white;
   border-radius: 0.75rem;
   padding: 0.25rem;
@@ -50,7 +51,7 @@
   font-size: 0.875rem;
   font-weight: 500;
   white-space: nowrap;
-  transition: color 0.2s, box-shadow 0.2s;
+  
   color: #2563eb;
   background-color: transparent;
   cursor: pointer;
@@ -61,9 +62,9 @@
 }
 
 .tabs-trigger-active {
-  background-color: white;
+  background-color: rgba(37, 99, 235, 0.1);
   color: #0f172a;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  border: 1px, solid, #2563eb;
 }
 
 /* Main Content */
