@@ -10,7 +10,7 @@ import {
   getCurrentMonthEnd,
 } from "../utils/finance";
 import { sumByCategory } from "../wasm/financeWasm";
-import type { Budget } from "../types/finance";
+import type { Budget, Transaction } from "../types/finance";
 
 type BudgetFormState = {
   categoryId: string;
@@ -24,24 +24,47 @@ const defaultFormState: BudgetFormState = {
   notes: "",
 };
 
-function BudgetsPage() {
-  const { budgets, addBudget, updateBudget, deleteBudget } = useBudgets();
-  const { transactions } = useTransactions();
+const getCategoryName = (categoryId: string): string => {
+  const category = sampleCategories.find((c) => c.id === categoryId);
+  return category?.name ?? categoryId;
+};
 
-  const [createForm, setCreateForm] =
-    useState<BudgetFormState>(defaultFormState);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
-  const [editForm, setEditForm] = useState<BudgetFormState>(defaultFormState);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [spentMap, setSpentMap] = useState<Map<string, number>>(new Map());
+const getBudgetMetrics = (budget: Budget, spent: number) => {
+  const remaining = budget.monthlyLimit - spent;
+  const percentUsed =
+    budget.monthlyLimit > 0 ? (spent / budget.monthlyLimit) * 100 : 0;
+  return {
+    spent,
+    remaining,
+    percentUsed,
+    isOver: spent > budget.monthlyLimit,
+  };
+};
 
+const computeBudgetTotals = (
+  budgets: Budget[],
+  spentMap: Map<string, number>
+) => {
+  const totalBudgeted = budgets.reduce(
+    (sum, budget) => sum + budget.monthlyLimit,
+    0
+  );
+  const totalSpent = budgets.reduce(
+    (sum, budget) => sum + (spentMap.get(budget.id) ?? 0),
+    0
+  );
+  const totalRemaining = totalBudgeted - totalSpent;
+  const usagePercent =
+    totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0;
+  return { totalBudgeted, totalSpent, totalRemaining, usagePercent };
+};
+
+const useBudgetSpending = (transactions: Transaction[], budgets: Budget[]) => {
   const monthStart = useMemo(() => getCurrentMonthStart(), []);
   const monthEnd = useMemo(() => getCurrentMonthEnd(), []);
   const startTs = BigInt(monthStart.getTime());
   const endTs = BigInt(monthEnd.getTime());
 
-  // Prepare arrays for WASM
   const { timestamps, amounts, categoryIndices } = useMemo(() => {
     const ts: bigint[] = [];
     const amts: number[] = [];
@@ -61,7 +84,6 @@ function BudgetsPage() {
     };
   }, [transactions, monthStart, monthEnd]);
 
-  // Prepare current-month transactions for JS fallback
   const currentMonthTxs = useMemo(
     () =>
       transactions.filter((tx) => {
@@ -71,7 +93,10 @@ function BudgetsPage() {
     [transactions, monthStart, monthEnd]
   );
 
-  // Compute spent using WASM with JS fallback
+  const [spentMap, setSpentMap] = useState<Map<string, number>>(() =>
+    new Map()
+  );
+
   useEffect(() => {
     if (budgets.length === 0) {
       setSpentMap(new Map());
@@ -94,11 +119,9 @@ function BudgetsPage() {
               amounts,
               categoryIndices
             );
-            // WASM returns negative for expenses
             newSpentMap.set(budget.id, Math.abs(spent));
           } catch (error) {
             console.error("WASM failed for budget", budget.id, error);
-            // Fallback to JS
             const spent = currentMonthTxs
               .filter(
                 (tx) =>
@@ -126,13 +149,50 @@ function BudgetsPage() {
     currentMonthTxs,
   ]);
 
-  const getCategoryName = (categoryId: string): string => {
-    const category = sampleCategories.find((c) => c.id === categoryId);
-    return category?.name ?? categoryId;
-  };
+  return { spentMap, monthStart, monthEnd };
+};
+
+function BudgetsPage() {
+  const { budgets, addBudget, updateBudget, deleteBudget } = useBudgets();
+  const { transactions } = useTransactions();
+
+  const { spentMap, monthStart, monthEnd } = useBudgetSpending(
+    transactions,
+    budgets
+  );
+
+  const summaryTotals = useMemo(
+    () => computeBudgetTotals(budgets, spentMap),
+    [budgets, spentMap]
+  );
+  const { totalBudgeted, totalSpent, totalRemaining, usagePercent } =
+    summaryTotals;
+
+  const budgetWindowLabel = useMemo(
+    () =>
+      `${monthStart.toLocaleDateString(undefined, {
+        month: "long",
+        day: "numeric",
+      })} – ${monthEnd.toLocaleDateString(undefined, {
+        month: "long",
+        day: "numeric",
+      })}`,
+    [monthStart, monthEnd]
+  );
+
+  const [createForm, setCreateForm] =
+    useState<BudgetFormState>(defaultFormState);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [editForm, setEditForm] = useState<BudgetFormState>(defaultFormState);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const handleFormChange = (key: keyof BudgetFormState, value: string) => {
     setCreateForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleEditChange = (key: keyof BudgetFormState, value: string) => {
+    setEditForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const validateBudgetForm = (form: BudgetFormState): number | null => {
@@ -153,7 +213,6 @@ function BudgetsPage() {
       return;
     }
 
-    // Check duplicate category
     if (budgets.some((b) => b.categoryId === createForm.categoryId)) {
       setCreateError("Budget already exists for this category.");
       return;
@@ -177,10 +236,6 @@ function BudgetsPage() {
     setEditError(null);
   };
 
-  const handleEditChange = (key: keyof BudgetFormState, value: string) => {
-    setEditForm((prev) => ({ ...prev, [key]: value }));
-  };
-
   const handleEditSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!editingBudget) return;
@@ -192,7 +247,6 @@ function BudgetsPage() {
       return;
     }
 
-    // Check duplicate if category changed
     if (
       editForm.categoryId !== editingBudget.categoryId &&
       budgets.some(
@@ -228,6 +282,59 @@ function BudgetsPage() {
           <p>Set monthly spending limits and track progress.</p>
         </div>
       </header>
+
+      <section className="budget-summary">
+        <div className="budget-summary-header">
+          <p className="stat-label">Budget window</p>
+          <p className="stat-value">{budgetWindowLabel}</p>
+        </div>
+        <div className="budget-summary-grid">
+          <article className="stat-card">
+            <div className="stat-card-content">
+              <div className="stat-info">
+                <p className="stat-label">Total budgeted</p>
+                <p className="stat-value">{formatMoney(totalBudgeted)}</p>
+              </div>
+            </div>
+          </article>
+          <article className="stat-card">
+            <div className="stat-card-content">
+              <div className="stat-info">
+                <p className="stat-label">Total spent</p>
+                <p className="stat-value">{formatMoney(totalSpent)}</p>
+              </div>
+            </div>
+          </article>
+          <article className="stat-card">
+            <div className="stat-card-content">
+              <div className="stat-info">
+                <p className="stat-label">Remaining</p>
+                <p
+                  className={`stat-value ${
+                    totalRemaining < 0 ? "amount-negative" : ""
+                  }`}
+                >
+                  {formatMoney(totalRemaining)}
+                </p>
+              </div>
+            </div>
+          </article>
+          <article className="stat-card">
+            <div className="stat-card-content">
+              <div className="stat-info">
+                <p className="stat-label">Usage</p>
+                <p className="stat-value">{usagePercent.toFixed(0)}%</p>
+              </div>
+              <div className="budget-summary-progress" role="progressbar" aria-valuenow={usagePercent} aria-valuemin={0} aria-valuemax={100}>
+                <div
+                  className="progress-bar"
+                  style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                />
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
 
       <section className="budgets-form-card">
         <h3>Add new budget</h3>
@@ -279,13 +386,11 @@ function BudgetsPage() {
         ) : (
           <div className="budgets-cards">
             {budgets.map((budget) => {
-              const spent = spentMap.get(budget.id) || 0;
-              const remaining = budget.monthlyLimit - spent;
-              const percentUsed =
-                budget.monthlyLimit > 0
-                  ? (spent / budget.monthlyLimit) * 100
-                  : 0;
-              const isOver = spent > budget.monthlyLimit;
+              const metrics = getBudgetMetrics(
+                budget,
+                spentMap.get(budget.id) ?? 0
+              );
+              const { spent, remaining, percentUsed, isOver } = metrics;
               return (
                 <div key={budget.id} className="budget-card">
                   <div className="budget-header">
@@ -325,7 +430,7 @@ function BudgetsPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="budget-progress">
+                  <div className="budget-progress" role="progressbar" aria-valuenow={percentUsed} aria-valuemin={0} aria-valuemax={100}>
                     <div
                       className={`progress-bar ${isOver ? "over" : ""}`}
                       style={{ width: `${Math.min(percentUsed, 100)}%` }}
@@ -343,14 +448,17 @@ function BudgetsPage() {
 
       {editingBudget && (
         <div
-          className="modal-backdrop"
+          className="budget-modal-backdrop"
           role="dialog"
           aria-modal="true"
-          style={{ pointerEvents: "none" }}
+          onClick={() => setEditingBudget(null)}
         >
-          <div className="modal" style={{ pointerEvents: "auto" }}>
+          <div
+            className="budget-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
             <header>
-              <h3>Edit Budget</h3>
+              <h3>Edit budget</h3>
               <button
                 className="text-button"
                 onClick={() => setEditingBudget(null)}
@@ -400,7 +508,7 @@ function BudgetsPage() {
                 <button type="button" onClick={() => setEditingBudget(null)}>
                   Cancel
                 </button>
-                <button type="submit">Save Changes</button>
+                <button type="submit">Save changes</button>
               </div>
             </form>
           </div>
