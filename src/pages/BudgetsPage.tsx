@@ -1,21 +1,18 @@
-
+import { Budgets } from "../components/Budgets";
 
 function BudgetsPage() {
-  // This component is a placeholder for refactoring.
-  // All previous budget page functionality has been removed.
-
   return (
-    <div className="budgets-page">
-      <header className="budgets-header">
+    <div className="content-section budgets-page">
+      <header className="dashboard-header">
         <div>
-          <h2>Budgets</h2>
-          <p>Refactoring in progress...</p>
+          <h2 className="dashboard-title">Budgets</h2>
+          <p className="dashboard-subtitle">
+            Plan your bills, income, and monthly cash flow.
+          </p>
         </div>
       </header>
 
-      <section className="budgets-content">
-        <p>New budget functionality will be implemented here.</p>
-      </section>
+      <Budgets />
     </div>
   );
 }
