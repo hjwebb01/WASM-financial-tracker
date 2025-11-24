@@ -205,7 +205,7 @@ export function Budgets() {
       isPaid: bill.isPaid
     }));
     return [...billItems, ...paychecksWithOccurrences].sort((a, b) => a.date - b.date);
-  }, [paychecksWithOccurrences, sortedBills]);
+  }, [paychecksWithOccurrences, sortedBills, monthKey]);
 
   const totalIncome = paychecksWithOccurrences.reduce((sum, item) => sum + item.amount, 0);
   const totalBills = sortedBills.reduce((sum, bill) => sum + bill.amount, 0);
@@ -466,48 +466,46 @@ export function Budgets() {
           <p className="chart-subtitle">Projected cash flow for {monthLabel}</p>
         </div>
         <div className="timeline">
-          {(() => {
-            let runningTotal = 0;
-            return timelineItems.map((item, index) => {
-              if (item.type === 'paycheck') {
-                runningTotal += item.amount;
-              } else {
-                runningTotal -= item.amount;
-              }
-
-              return (
-                <div
-                  key={`${item.type}-${item.date}-${index}`}
-                  className={`timeline-item ${item.type === 'paycheck' ? 'timeline-item-income' : ''}`}
-                >
-                  <div className="timeline-date">
-                    <span className="timeline-day">{formatDayLabel(item.date)}</span>
+          {timelineItems.reduce<Array<{ item: TimelineItem; runningTotal: number; index: number }>>(
+            (acc, item, index) => {
+              const previousTotal = acc.length > 0 ? acc[acc.length - 1].runningTotal : 0;
+              const runningTotal =
+                item.type === 'paycheck' ? previousTotal + item.amount : previousTotal - item.amount;
+              acc.push({ item, runningTotal, index });
+              return acc;
+            },
+            []
+          ).map(({ item, runningTotal, index }) => (
+            <div
+              key={`${item.type}-${item.date}-${index}`}
+              className={`timeline-item ${item.type === 'paycheck' ? 'timeline-item-income' : ''}`}
+            >
+              <div className="timeline-date">
+                <span className="timeline-day">{formatDayLabel(item.date)}</span>
+              </div>
+              <div className="timeline-content">
+                <div className="timeline-dot" />
+                <div className="timeline-card">
+                  <div className="timeline-info">
+                    <p className={`timeline-name ${item.type === 'bill' && item.isPaid ? 'timeline-name-paid' : ''}`}>
+                      {item.name}
+                    </p>
+                    <span className={`timeline-type ${item.type === 'paycheck' ? 'timeline-type-income' : 'timeline-type-expense'}`}>
+                      {item.type === 'paycheck' ? 'Income' : 'Bill'}
+                    </span>
                   </div>
-                  <div className="timeline-content">
-                    <div className="timeline-dot" />
-                    <div className="timeline-card">
-                      <div className="timeline-info">
-                        <p className={`timeline-name ${item.type === 'bill' && item.isPaid ? 'timeline-name-paid' : ''}`}>
-                          {item.name}
-                        </p>
-                        <span className={`timeline-type ${item.type === 'paycheck' ? 'timeline-type-income' : 'timeline-type-expense'}`}>
-                          {item.type === 'paycheck' ? 'Income' : 'Bill'}
-                        </span>
-                      </div>
-                      <div className="timeline-amount-wrapper">
-                        <p className={`timeline-amount ${item.type === 'paycheck' ? 'timeline-amount-income' : 'timeline-amount-expense'}`}>
-                          {item.type === 'paycheck' ? '+' : '-'}${item.amount.toFixed(2)}
-                        </p>
-                        <p className="timeline-rolling-total">
-                          ${runningTotal.toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
+                  <div className="timeline-amount-wrapper">
+                    <p className={`timeline-amount ${item.type === 'paycheck' ? 'timeline-amount-income' : 'timeline-amount-expense'}`}>
+                      {item.type === 'paycheck' ? '+' : '-'}${item.amount.toFixed(2)}
+                    </p>
+                    <p className="timeline-rolling-total">
+                      ${runningTotal.toFixed(2)}
+                    </p>
                   </div>
                 </div>
-              );
-            });
-          })()}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
