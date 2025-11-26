@@ -9,8 +9,6 @@
    description: string;
    categoryId: string;
    amountCents: number;
-   createdAt?: string;
-   editedAt?: string;
  };
 
  export type Budget = {
@@ -18,6 +16,4 @@
    categoryId: string;
    monthlyLimit: number; // in cents
    notes?: string;
-   createdAt: string;
-   updatedAt: string;
  };

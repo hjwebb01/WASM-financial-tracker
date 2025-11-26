@@ -50,7 +50,7 @@ const getOrdinal = (day: number) => {
   return `${day}${suffixes[day % 10] ?? "th"}`;
 };
 
-export function Budgets() {
+export default function Budgets() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [paychecks, setPaychecks] = useState<Paycheck[]>([]);
   const [showBillForm, setShowBillForm] = useState(false);

@@ -2,6 +2,8 @@ type WasmFinanceModule = {
   HEAP32: Int32Array;
   HEAP64: BigInt64Array;
   _sum_int32(ptr: number, length: number): number;
+  _sum_by_type(amountsPtr: number, typeFlagsPtr: number, length: number, filterType: number): number;
+  _calculate_running_balances(amountsPtr: number, typeFlagsPtr: number, startBalanceCents: number, outputPtr: number, length: number): void;
   _sum_by_category(categoryIndex: number, startTs: bigint, endTs: bigint, tsPtr: number, amtPtr: number, catPtr: number, length: number): number;
   _sum_by_month(year: number, month: number, tsPtr: number, amtPtr: number, length: number): number;
   _malloc(size: number): number;
@@ -56,77 +58,98 @@ export async function sumInt32(values: Int32Array): Promise<number> {
   }
 }
 
-export async function sumByCategory(
-  categoryIndex: number,
-  startTs: bigint,
-  endTs: bigint,
-  timestamps: BigInt64Array,
-  amounts: Int32Array,
-  categoryIndices: Int32Array
+export async function sumByType(
+  amountsCents: Int32Array,
+  typeFlags: Int32Array,
+  filterType: "income" | "expense"
 ): Promise<number> {
   const module = await initFinanceWasm();
 
-  const length = amounts.length;
-  if (length !== timestamps.length || length !== categoryIndices.length) {
+  const length = amountsCents.length;
+  if (length !== typeFlags.length) {
     throw new Error("Array lengths must match");
   }
 
-  const tsBytes = length * BigInt64Array.BYTES_PER_ELEMENT;
-  const amtBytes = length * Int32Array.BYTES_PER_ELEMENT;
-  const catBytes = length * Int32Array.BYTES_PER_ELEMENT;
+  if (length === 0) {
+    return 0;
+  }
 
-  const tsPtr = module._malloc(tsBytes);
-  const amtPtr = module._malloc(amtBytes);
-  const catPtr = module._malloc(catBytes);
+  const amountsBytes = length * Int32Array.BYTES_PER_ELEMENT;
+  const typesBytes = length * Int32Array.BYTES_PER_ELEMENT;
+
+  const amountsPtr = module._malloc(amountsBytes);
+  const typesPtr = module._malloc(typesBytes);
 
   try {
-    const tsHeapIndex = tsPtr / BigInt64Array.BYTES_PER_ELEMENT;
-    const amtHeapIndex = amtPtr / Int32Array.BYTES_PER_ELEMENT;
-    const catHeapIndex = catPtr / Int32Array.BYTES_PER_ELEMENT;
+    const amountsHeapIndex = amountsPtr / Int32Array.BYTES_PER_ELEMENT;
+    const typesHeapIndex = typesPtr / Int32Array.BYTES_PER_ELEMENT;
 
-    module.HEAP64.set(timestamps, tsHeapIndex);
-    module.HEAP32.set(amounts, amtHeapIndex);
-    module.HEAP32.set(categoryIndices, catHeapIndex);
+    module.HEAP32.set(amountsCents, amountsHeapIndex);
+    module.HEAP32.set(typeFlags, typesHeapIndex);
 
-    const result = module._sum_by_category(categoryIndex, startTs, endTs, tsPtr, amtPtr, catPtr, length);
-    return result;
+    const filterTypeValue = filterType === "income" ? 1 : 0;
+    const resultCents = module._sum_by_type(amountsPtr, typesPtr, length, filterTypeValue);
+    
+    // Convert from cents back to dollars
+    return resultCents / 100;
   } finally {
-    module._free(tsPtr);
-    module._free(amtPtr);
-    module._free(catPtr);
+    module._free(amountsPtr);
+    module._free(typesPtr);
   }
 }
 
-export async function sumByMonth(
-  year: number,
-  month: number,
-  timestamps: BigInt64Array,
-  amounts: Int32Array
-): Promise<number> {
+export async function calculateRunningBalances(
+  amountsCents: Int32Array,
+  typeFlags: Int32Array,
+  startBalance: number
+): Promise<Array<{ before: number; after: number }>> {
   const module = await initFinanceWasm();
 
-  const length = amounts.length;
-  if (length !== timestamps.length) {
+  const length = amountsCents.length;
+  if (length !== typeFlags.length) {
     throw new Error("Array lengths must match");
   }
 
-  const tsBytes = length * BigInt64Array.BYTES_PER_ELEMENT;
-  const amtBytes = length * Int32Array.BYTES_PER_ELEMENT;
+  if (length === 0) {
+    return [];
+  }
 
-  const tsPtr = module._malloc(tsBytes);
-  const amtPtr = module._malloc(amtBytes);
+  const amountsBytes = length * Int32Array.BYTES_PER_ELEMENT;
+  const typesBytes = length * Int32Array.BYTES_PER_ELEMENT;
+  const outputBytes = length * 2 * Int32Array.BYTES_PER_ELEMENT; // 2 values per transaction
+
+  const amountsPtr = module._malloc(amountsBytes);
+  const typesPtr = module._malloc(typesBytes);
+  const outputPtr = module._malloc(outputBytes);
 
   try {
-    const tsHeapIndex = tsPtr / BigInt64Array.BYTES_PER_ELEMENT;
-    const amtHeapIndex = amtPtr / Int32Array.BYTES_PER_ELEMENT;
+    const amountsHeapIndex = amountsPtr / Int32Array.BYTES_PER_ELEMENT;
+    const typesHeapIndex = typesPtr / Int32Array.BYTES_PER_ELEMENT;
 
-    module.HEAP64.set(timestamps, tsHeapIndex);
-    module.HEAP32.set(amounts, amtHeapIndex);
+    module.HEAP32.set(amountsCents, amountsHeapIndex);
+    module.HEAP32.set(typeFlags, typesHeapIndex);
 
-    const result = module._sum_by_month(year, month, tsPtr, amtPtr, length);
-    return result;
+    const startBalanceCents = Math.round(startBalance * 100);
+    module._calculate_running_balances(amountsPtr, typesPtr, startBalanceCents, outputPtr, length);
+
+    // Read results from WASM memory
+    const results = new Int32Array(module.HEAP32.buffer, outputPtr, length * 2);
+    
+    // Convert to array of {before, after} objects, converting from cents to dollars
+    const balances: Array<{ before: number; after: number }> = [];
+    for (let i = 0; i < length; i++) {
+      balances.push({
+        before: results[i * 2] / 100,
+        after: results[i * 2 + 1] / 100,
+      });
+    }
+
+    return balances;
   } finally {
-    module._free(tsPtr);
-    module._free(amtPtr);
+    module._free(amountsPtr);
+    module._free(typesPtr);
+    module._free(outputPtr);
   }
 }
+
+

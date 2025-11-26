@@ -1,3 +1,5 @@
+import Transactions from "../components/Transactions";
+
 function TransactionsPage() {
   return (
     <div className="mb-8">
@@ -11,12 +13,7 @@ function TransactionsPage() {
           </p>
         </div>
       </header>
-
-      <section className="bg-[#2a2a2a] border border-gray-700 rounded-lg p-6 mb-6"></section>
-
-      <section className="mb-6"></section>
-
-      <div className="bg-[#2a2a2a] border border-gray-700 rounded-lg p-6"></div>
+      <Transactions />
     </div>
   );
 }

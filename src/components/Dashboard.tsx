@@ -1,49 +1,36 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Wallet, TrendingUp, Calendar, DollarSign } from "lucide-react";
+import { useFinance } from "../context/FinanceContext";
 
-import financialDataRaw from "../assets/financial_data.csv?raw";
+export default function Dashboard() {
+  const { financialData, transactions } = useFinance();
+  const { currentBalance } = financialData;
 
-export function Dashboard() {
-  // Parse CSV data
-  const data = useMemo(() => {
-    const lines = financialDataRaw.trim().split('\n');
-    const values = lines[1].split(',');
-    return {
-      currentBalance: parseFloat(values[0]),
-      monthlyBills: parseFloat(values[1]),
-      monthlyIncome: parseFloat(values[2])
-    };
-  }, []);
-
-  const [currentBalance] = useState(data.currentBalance);
-  const [monthlyBills] = useState(data.monthlyBills); 
-  const [monthlyIncome] = useState(data.monthlyIncome);
-
-  const currentDate = useMemo(() => new Date(), []);
-  const currentMonth = useMemo(() => {
-    return currentDate.toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
-  }, [currentDate]);
-
-  const nextMonth = useMemo(() => {
-    const next = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth() + 1,
-      1
-    );
-    return next.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  }, [currentDate]);
+  // Calculate total value of manual transactions
+  const transactionsTotal = useMemo(() => {
+    return transactions.reduce((acc, curr) => {
+      return acc + (curr.type === "income" ? curr.amount : -curr.amount);
+    }, 0);
+  }, [transactions]);
+  const incomeTotal = useMemo(() => {
+    return transactions.reduce((acc, curr) => {
+      return acc + (curr.type === "income" ? curr.amount : 0);
+    }, 0);
+  }, [transactions]);
+  const billsTotal = useMemo(() => {
+    return transactions.reduce((acc, curr) => {
+      return acc + (curr.type === "expense" ? curr.amount : 0);
+    }, 0);
+  }, [transactions]);
 
   // Calculate projected balance at end of current month / start of next month
   const projectedBalance = useMemo(() => {
-    return currentBalance + monthlyIncome - monthlyBills;
-  }, [currentBalance, monthlyIncome, monthlyBills]);
+    return currentBalance + transactionsTotal;
+  }, [currentBalance, transactionsTotal]);
 
   const netChange = useMemo(() => {
-    return monthlyIncome - monthlyBills;
-  }, [monthlyIncome, monthlyBills]);
+    return transactionsTotal;
+  }, [transactionsTotal]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -68,9 +55,7 @@ export function Dashboard() {
         <div className="bg-[#2a2a2a] border border-gray-700 rounded-lg p-6">
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-2">
-              <p className="text-gray-400 text-sm">
-                Projected Balance ({nextMonth})
-              </p>
+              <p className="text-gray-400 text-sm">Projected Balance</p>
               <div className="flex flex-col gap-1">
                 <p className="text-white text-xl font-semibold">
                   ${projectedBalance.toFixed(2)}
@@ -86,10 +71,10 @@ export function Dashboard() {
         <div className="bg-[#2a2a2a] border border-gray-700 rounded-lg p-6">
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-2">
-              <p className="text-gray-400 text-sm">Monthly Income</p>
+              <p className="text-gray-400 text-sm">Income</p>
               <div className="flex flex-col gap-1">
                 <p className="text-white text-xl font-semibold">
-                  ${monthlyIncome.toFixed(2)}
+                  ${incomeTotal.toFixed(2)}
                 </p>
               </div>
             </div>
@@ -102,10 +87,10 @@ export function Dashboard() {
         <div className="bg-[#2a2a2a] border border-gray-700 rounded-lg p-6">
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-2">
-              <p className="text-gray-400 text-sm">Monthly Bills</p>
+              <p className="text-gray-400 text-sm">Bills</p>
               <div className="flex flex-col gap-1">
                 <p className="text-white text-xl font-semibold">
-                  ${monthlyBills.toFixed(2)}
+                  ${billsTotal.toFixed(2)}
                 </p>
               </div>
             </div>
@@ -121,10 +106,10 @@ export function Dashboard() {
         <div className="bg-[#2a2a2a] border border-gray-700 rounded-lg p-6">
           <div className="mb-4">
             <h3 className="text-white text-lg font-semibold mb-1">
-              Projected Change for {currentMonth}
+              Projected Change
             </h3>
             <p className="text-gray-400 text-sm">
-              Expected net change by the end of the month
+              Expected net change after all transactions are completed
             </p>
           </div>
           <div className="mt-4">
@@ -167,9 +152,7 @@ export function Dashboard() {
             </div>
             <div className="h-0.5 bg-linear-to-r from-blue-500 to-green-500 rounded" />
             <div>
-              <p className="text-gray-400 text-sm mb-2">
-                Projected Balance ({nextMonth})
-              </p>
+              <p className="text-gray-400 text-sm mb-2">Projected Balance</p>
               <p className="text-green-500 text-2xl font-semibold">
                 ${projectedBalance.toFixed(2)}
               </p>
